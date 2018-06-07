@@ -1,5 +1,6 @@
 # GhostTunnel
 - 首先这个概念是360提出来的，但是一直没有源码所以我尝试自己复现
+- 360的PPT地址（https://github.com/360PegasusTeam/PegasusTeam/tree/master/talks）
 - 我在Windows上复现过，但是对于response帧的解析一直不太好所以没有公开源码，我认为这个是有攻击性的
 - 但是后来我的学弟在github昨天也做出来了windows上的GhostTunnel复现，这是他的git（https://github.com/MRdoulestar/yunsle_ghost_tunnel）
 - 我已经被身边的人吐槽了没有第一时间把代码放出来
