@@ -77,6 +77,7 @@ def banner():
         [*] Command: iwconfig wlan0 mode monitors
     '''
 if __name__ == "__main__":
+    banner()
     print "waiting for wake up......."
     #监听函数
     sniff(iface=iface, prn=handle)
