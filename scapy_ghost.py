@@ -4,7 +4,7 @@ import binascii
 import time
 
 #设置ssid和监听设备名
-netSSID = 'yunsle_ghost_tunnel'       #Network name here
+netSSID = 'ghost'       #Network name here
 iface = 'wlan0'         #Interface name here
 
 #Scapy参考设置
@@ -71,7 +71,11 @@ def handle(packet):
             sendCmd(response_frame)
             #这里只要发送完毕既退出
             exit(1)
-
+def banner():
+    print'''
+        [!] Please turn Interface into monitor mode
+        [*] Command: iwconfig wlan0 mode monitors
+    '''
 if __name__ == "__main__":
     print "waiting for wake up......."
     #监听函数
