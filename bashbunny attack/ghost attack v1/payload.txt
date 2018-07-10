@@ -1,11 +1,9 @@
 #!/bin/bash
 #
 # Title:         Hidden Attack
-# Description:   
-# Author:        Steven
-# Props:         
-# Version:       
-# Category:      
+# Description:   For ghost memery attack
+# Author:        Steven    
+# Version:       v 1.0  
 # Target:        Windows
 # Attackmodes:   HID, STORAGE
 
