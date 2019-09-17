@@ -5,7 +5,6 @@
 - 感谢学弟（ https://github.com/MRdoulestar/yunsle_ghost_tunnel ）对我工作前期的启发。
 - 非常感谢我的伙伴jerryma0912( https://github.com/jerryma0912 ) 对我开发工作的支持与帮助。不擅长C++的我很大程度受益于他的帮忙。
 - 目前windows版本已经进入稳定演示版本。我们测试的平台是windows 10，测试过部分网卡。但是还未记录文档和测试结果。大部分的DOS指令可以成功执行。
-- 我是网络安全通团队的安全研发工程师
 - 目前项目已经告一段落
 
 # 说明文档
